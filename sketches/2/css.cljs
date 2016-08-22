@@ -17,12 +17,14 @@ body {
 	background: white;
   color: #222;
 }
+input { margin: 0; padding: 0;}
 
 h1 {
   margin: 0 0 2rem 0;
 }
 p {
   margin: 1rem 0 0 0;
+  word-wrap: break-word;
 }
 
 .hatapp {
@@ -90,23 +92,51 @@ select {
 	box-sizing: border-box;
 }
 
-.players { list-style: none; margin: 0; padding: 0; }
-.players li { position: relative; padding: 0; border-top: 1px solid #ddd; }
-.players li:last-child { border-bottom: 1px solid #ddd; }
-.players li label{ display:block;  margin: 0 7rem 0 0; line-height: 3.5rem; }
-.up-btn, .del-btn {
+.p5s-ul { list-style: none; margin: 0; padding: 0; }
+.p5s-li {
+  position: relative;
+  padding: 0.5rem 7rem 0.5rem 0;
+  margin: 0;
+  border-top: 1px solid #ddd;
+}
+.p5s-li:last-child { border-bottom: 1px solid #ddd; }
+.p5s-t { word-wrap: break-word;}
+.p5s-up, .p5s-del {
   position: absolute;
   margin: auto 0;
-  font-size: 1.4rem;
+  font-size: 1rem;
   width: 3rem;
   height: 3rem;
   top: 0;
   bottom: 0;
   border: none;
+  text-align: center;
 }
-.up-btn:hover, .del-btn:hover { border: none; color: crimson; }
-.up-btn {  right: 3.5rem; }
-.del-btn { right: 0rem; }
+.p5s-up:hover, .p5s-del:hover { border: none; color: crimson; }
+.p5s-up {right: 3.5rem;}
+.p5s-del {right: 0rem;}
+
+.l2t-h {text-align: right;}
+.l2t-h span {text-align:center; width: 3rem; border: none; display:inline-block;}
+
+.l2t-ul { list-style: none; margin: 0; padding: 0; }
+.l2t-li {
+  position: relative;
+  padding: 0.5rem 9rem 0.5rem 0;
+  margin: 0;
+  border-top: 1px solid #ddd;
+}
+.l2t-li:last-child { border-bottom: 1px solid #ddd; }
+.l2t-t { word-wrap: break-word; }
+.l2t-d {
+  position:absolute;
+  font-size: inherit;
+  right: 0; top: 0; bottom: 0;
+  padding: 0;
+  margin: auto 0;
+  height: 3rem;
+}
+.l2t-i { width: 3rem; height: 3rem; }
 
 .word {
   background-color: crimson;

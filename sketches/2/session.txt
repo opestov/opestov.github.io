@@ -63,7 +63,7 @@ z
 (.play (js/document.getElementById "play"))
 
 (enqueue {:tag "tick"})
-(enqueue {:tag "back-from-lastround"})
+(enqueue {:tag "gameover"})
 (enqueue "step3")
 
 @queue

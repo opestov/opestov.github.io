@@ -1,10 +1,13 @@
 (ns o8v.game
   (:require [cljs.test :refer-macros [deftest is]]))
 
+(comment 
 (defonce beep
   (let [e (js/document.createElement "audio")]
     (.setAttribute e "src" "http://www.soundjay.com/button/beep-07.wav")
     (fn [_] (.play e))))
+)
+(defn beep [] (println "time"))
 
 (defmulti move (fn [model msg] [(:node model) (:tag msg)]))
 (defmethod move :default [model msg] model)
@@ -406,29 +409,21 @@
 ; {:tag "gameover"}
 (defmethod move ["transition" "gameover"] [model msg]
   (assoc model :node "confirm-gameover"))
-; {:tag "yes"}
 (defmethod move ["confirm-gameover" "complete-gameover"] [model msg]
   {:node "results" :history (:history model) :hat (:hat model)}) 
-; {:tag "no"}
 (defmethod move ["confirm-gameover" "cancel-gameover"] [model msg]
   (assoc model :node "transition"))
 
 ; {:tag "reset"}
 (defmethod move ["transition" "reset"] [model msg]
   (assoc model :node "confirm-reset"))
-; {:tag "yes"}
 (defmethod move ["confirm-reset" "complete-reset"] [model msg]
   new-game)
-; {:tag "no"}
 (defmethod move ["confirm-reset" "cancel-reset"] [model msg]
   (assoc model :node "transition"))
 
-; {:tag "reset"}
-(defmethod move ["transition" "reset"] [model msg]
-  new-game)
-
-; {:tag "reset"}
-(defmethod move ["results" "reset"] [model msg]
+; {:tag "newgame"}
+(defmethod move ["results" "newgame"] [model msg]
   new-game)
 
 (deftest foo1
@@ -581,21 +576,22 @@
         val (fn [e] (.-value (.-target e)))
         parts (fn [e] (remove clojure.string/blank?
                         (clojure.string/split (val e) #"\s+")))
-        name (fn [e] (.-innerText (.-firstChild (.-parentNode (.-target e)))))]
+        name (fn [e] (-> e (.-target) (.-parentNode)
+                        (.-firstChild) (.-innerText)))]
     [[:h1
       [:a {:href "#" :class "back"}
         {:onclick (constantly {:tag "back-from-players"})} "←"]
       "Players"]
     (when (seq (:players model))
-      [:ul {:class "players"}
+      [:ul {:class "p5s-ul"}
         (for [x (:players model)]
-          [:li
-            [:label x]
-            [:button {:class "up-btn"
-                      :onclick (fn [e] {:tag "lift-player" :name (name e)})}
+          [:li {:class "p5s-li"}
+            [:label {:class "p5s-t"} x]
+            [:button {:class "p5s-up"}
+              {:onclick (fn [e] {:tag "lift-player" :name (name e)})}
               "↑"]
-            [:button {:class "del-btn"
-                      :onclick (fn [e] {:tag "remove-player" :name (name e)})}
+            [:button {:class "p5s-del"}
+              {:onclick (fn [e] {:tag "remove-player" :name (name e)})}
               "×"]])])
     [:p "Enter unique names of a new players (separate them by space)"]
     [:input {:class "textbox" :type "text"
@@ -639,16 +635,17 @@
     [:select {:onchange (handler "set-return-flag" (fn [x] (= "Yes" x)))}
       (map (opt (if (:return-words? model) "Yes" "No")) ["Yes" "No"])]]))
 
+
 (defmethod view "lastround" [model app-class]
   (let [step (:step model)
         app (.item (js/document.getElementsByClassName app-class) 0)
         jfn (fn [x] (juxt identity (constantly (name x))))
         words (sort (concat
                       (map (jfn :ac) (get-in model [:history step :ac]))
-                      (map (jfn :rj) (get-in model [:history step :rj]))
-                      (map (jfn :hat) (get-in model [:history step :hat]))))
+                      (map (jfn :hat) (get-in model [:history step :hat]))
+                      (map (jfn :rj) (get-in model [:history step :rj]))))
         inp (fn [word type radio-type]
-              [:input {:type "radio" :name word :data-t radio-type}
+              [:input {:class "l2t-i" :type "radio" :name word :data-t radio-type}
                 (when (= type radio-type) {:checked ""})])
         bfn (fn [_]
               (let [coll (.getElementsByTagName app "input")]
@@ -664,9 +661,15 @@
                   (conj {:tag "back-from-lastround"}))))]
     [[:h1
       [:a {:href "#" :class "back" :onclick bfn} "←"] "Last round"]
-    [:ul
-      (map (fn [[x y]] [:li (inp x y "ac") (inp x y "rj") (inp x y "hat") x])
-        words)]]))
+      [:p {:class "l2t-h"} [:span {:style "color: green;"} "+"]
+        [:span "−"] [:span {:style "color: red;"} "×"]]
+      [:ul {:class "l2t-ul"}
+        (map (fn [[x y]]
+                [:li {:class "l2t-li"}
+                  [:label {:class "l2t-t"} x]
+                  [:div {:class "l2t-d"}
+                  (inp x y "ac") (inp x y "hat") (inp x y "rj")]])
+          words)]]))
 
 (defonce font-context (.getContext (js/document.createElement "canvas") "2d"))
 (defn font-size
@@ -749,7 +752,7 @@
       [:ul (map (fn [[k v]] [:li (str v) " " (str k)]) (reverse (sort s2)))]
       [:h2 "Personal"]
       [:ul (map (fn [[k v]] [:li v " " k]) (reverse (sort s1)))]
-    [:button {:onclick (constantly {:tag "reset"})} "New game"]]))
+    [:button {:onclick (constantly {:tag "newgame"})} "New game"]]))
 
 
 (defn dom

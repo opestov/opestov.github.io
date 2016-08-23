@@ -1,13 +1,9 @@
-(ns o8v.game
-  (:require [cljs.test :refer-macros [deftest is]]))
+(ns o8v.game (:require clojure.string))
 
-(comment 
 (defonce beep
   (let [e (js/document.createElement "audio")]
-    (.setAttribute e "src" "http://www.soundjay.com/button/beep-07.wav")
+    (.setAttribute e "src" "beep.wav")
     (fn [_] (.play e))))
-)
-(defn beep [] (println "time"))
 
 (defmulti move (fn [model msg] [(:node model) (:tag msg)]))
 (defmethod move :default [model msg] model)
@@ -24,15 +20,6 @@
           [(nth p i) (nth p j+)]))
       [(nth p i) (nth p j)])))
 
-(deftest next-pair-tests
-  (let [g1 {:players [0 1 2 3 4] :personal? true}
-        g2 {:players [0 1 2 3] :personal? false}]
-    (is (= [1 2] (next-pair (assoc g1 :pair [0 1]))))
-    (is (= [1 0] (next-pair (assoc g1 :pair [0 4]))))
-    (is (= [0 2] (next-pair (assoc g1 :pair [4 0]))))
-    (is (= [1 3] (next-pair (assoc g2 :pair [0 2]))))
-    (is (= [2 0] (next-pair (assoc g2 :pair [1 3]))))))
-
 (defn complete-round [model]
   (let [r? (:return-words? model)
         hands (:hands (:round model))
@@ -45,6 +32,7 @@
         {:pair (:pair model) :ac (get-in model [:round :ac])
           :rj (if r? '() hands) :hat (if r? hands '())})
       (dissoc :round))))
+
 
 ; {:tag "ac" :word "apple"}
 (defmethod move ["explanation" "ac"] [model msg]
@@ -70,37 +58,6 @@
         :else
         (complete-round (assoc model :round r))))))
 
-(deftest explanation*ac-1
-  (let [x {:node "explanation" :hat #{"a" "b" "c"} :cards-in-hands 3
-          :round {:hands ["pear" "apple" "orange"] :ac '("carrot")}}
-        y+ {:tag "ac" :word "apple"}
-        y- {:tag "ac" :word "tomato"}
-        [z+ cmd] (move x y+)
-        z- (move x y-)]
-    (is (= '("apple" "carrot") (get-in z+ [:round :ac])))
-    (is (= ["pear" "orange"] (get-in z+ [:round :hands])))
-    (is (= {:cmd "choose" :coll (:hat x) :k 1} cmd))
-    (is (= x z-))))
-
-(deftest explanation*ac-2
-  (let [x {:node "explanation" :hat #{"a"} :cards-in-hands 3
-            :round {:hands ["pear" "apple"] :ac '("carrot")}}
-        y {:tag "ac" :word "apple"}
-        [z cmd] (move x y)]
-    (is (= {:cmd "choose" :coll (:hat x) :k 1} cmd))))
-
-(deftest explanation*ac-3
-  (let [x {:node "explanation"
-            :players ["A" "B" "C"] :pair ["C" "B"] :personal? true
-            :step 10 :hat #{} :cards-in-hands 3 
-            :round {:hands ["apple"] :ac '("carrot")}}
-        y {:tag "ac" :word "apple"}
-        z (move x y)]
-    (is (= (:node z) "transition"))
-    (is (= (:pair z) ["A" "B"]))
-    (is (= (:history z) {10 {:pair ["C" "B"] :ac '("apple" "carrot")
-                              :rj '() :hat '()}}))))
-
 ; {:tag "choice" :coll #("car" "map" "bug") :selection '("car" "bug")}
 (defmethod move ["explanation" "choice"] [model msg]
   (let [waiting (min (count (:hat model))
@@ -113,22 +70,6 @@
         (update-in [:round :hands] into (:selection msg)))
       ; ignore the message for another state
       model)))
-
-(deftest explanation*choice-1
-  (let [x {:node "explanation" :hat #{"a" "b" "c"} :cards-in-hands 3
-          :round {:hands ["apple"]}}
-        y {:tag "choice" :coll (:hat x) :selection '("a" "c")}
-        z (move x y)]
-    (is (= #{"b"} (:hat z)))
-    (is (= #{"apple" "a" "c"} (set (get-in z [:round :hands]))))))
-
-(deftest explanation*choice-2
-  (let [x {:node "explanation" :hat #{"a"} :cards-in-hands 3
-          :round {:hands ["apple"]}}
-        y {:tag "choice" :coll (:hat x) :selection '("a")}
-        z (move x y)]
-    (is (= #{} (:hat z)))
-    (is (= #{"apple" "a"} (set (get-in z [:round :hands]))))))
 
 ; {:tag "tick"}
 (defmethod move ["explanation" "tick"] [model msg]
@@ -144,50 +85,9 @@
     :else
     [(complete-round model) {:cmd "beep"}]))
 
-(deftest explanation*tick-1
-  (let [x {:node "explanation"
-            :players ["A" "B" "C"] :pair ["C" "B"] :personal? true
-            :step 10 :hat #{} :cards-in-hands 3
-            :explanation-tl 20 :guess-tl 5
-            :round {:hands ["apple"] :ac '("carrot") :ticks 18}}
-        y {:tag "tick"}
-        z (move x y)]
-    (is (= z (update-in x [:round :ticks] inc)))))
-
-(deftest explanation*tick-2
-  (let [x {:node "explanation"
-            :players ["A" "B" "C"] :pair ["C" "B"] :personal? true
-            :step 10 :hat #{} :cards-in-hands 3
-            :explanation-tl 20 :guess-tl 5
-            :round {:hands ["apple"] :ac '("carrot") :ticks 19}}
-        y {:tag "tick"}
-        z (move x y)]
-    (is (= z (assoc (assoc-in x [:round :ticks] 0) :node "guess")))))
-
-(deftest explanation*tick-3
-  (let [x {:node "explanation"
-            :players ["A" "B" "C"] :pair ["C" "B"] :personal? true
-            :step 10 :hat #{} :cards-in-hands 3
-            :explanation-tl 20 :guess-tl 0
-            :round {:hands ["apple"] :ac '("carrot") :ticks 19}}
-        y {:tag "tick"}
-        z (move x y)]
-    (is (= "transition" (:node z)))))
-
 ; {:tag "giveup"}
 (defmethod move ["explanation" "giveup"] [model msg]
   (complete-round model))
-
-(deftest explanation*giveup-1
-  (let [x {:node "explanation"
-            :players ["A" "B" "C"] :pair ["C" "B"] :personal? true
-            :step 10 :hat #{"orange"} :cards-in-hands 3
-            :explanation-tl 20 :guess-tl 0 :return-words? true
-            :round {:hands ["apple"] :ac '("carrot") :ticks 19}}
-        y {:tag "tick"}
-        z (move x y)]
-    (is (= #{"apple" "orange"} (:hat z)))
-    (is (= "transition" (:node z)))))
 
 ; {:tag "ac" :word "apple"}
 (defmethod move ["guess" "ac"] [model msg]
@@ -206,17 +106,6 @@
   (if (< (inc (get-in model [:round :ticks])) (:guess-tl model))
     (update-in model [:round :ticks] inc)
     [(complete-round model) {:cmd "beep"}]))
-
-(deftest guess*tick-1
-  (let [x {:node "guess"
-            :players ["A" "B" "C"] :pair ["C" "B"] :personal? true
-            :step 10 :hat #{"a" "b"} :cards-in-hands 3 :return-words? false
-            :explanation-tl 20 :guess-tl 5
-            :round {:hands ["apple"] :ac '("carrot") :ticks 4}}
-        y {:tag "tick"}
-        z (move x y)]
-    (is (= "transition" (:node z)))
-    (is (= #{"a" "b"} (:hat z)))))
 
 (def new-game
   {:node "transition"
@@ -265,23 +154,6 @@
     ; otherwise ignore message
     model))
 
-(deftest transition*go-1
-  (let [x {:cards-in-hands 3
-            :pair ["A" "B"]
-            :node "transition"
-            :hat #{"a" "b"}
-            :players ["A" "B" "C"]
-            :step 10}
-        x1- (dissoc x :pair)
-        x2- (assoc x :hat #{})
-        y {:tag "go"}
-        [z cmd] (move x y)]
-    (is (= "explanation" (:node z)))
-    (is (= 11 (:step z)))
-    (is (= cmd {:cmd "choose" :coll (:hat x) :k 2}))
-    (is (= x1- (move x1- y)))
-    (is (= x2- (move x2- y)))))
-
 ; {:tag "add-words" :coll ["apple" "orange"]}
 (defmethod move ["words" "add-words"] [model msg]
   (update model :hat into (:coll msg)))
@@ -289,7 +161,6 @@
 ; {:tag "remove-words" :coll ["apple" "orange"]}
 (defmethod move ["words" "remove-words"] [model msg]
   (assoc model :hat (apply disj (:hat model) (:coll msg))))
-
 
 ; {:tag "add-player" :name "Bob"}
 (defmethod move ["players" "add-player"] [model msg]
@@ -410,7 +281,8 @@
 (defmethod move ["transition" "gameover"] [model msg]
   (assoc model :node "confirm-gameover"))
 (defmethod move ["confirm-gameover" "complete-gameover"] [model msg]
-  {:node "results" :history (:history model) :hat (:hat model)}) 
+  {:node "results" :history (:history model) :personal? (:personal? model)
+    :hat (:hat model)})
 (defmethod move ["confirm-gameover" "cancel-gameover"] [model msg]
   (assoc model :node "transition"))
 
@@ -425,72 +297,6 @@
 ; {:tag "newgame"}
 (defmethod move ["results" "newgame"] [model msg]
   new-game)
-
-(deftest foo1
-  (-> new-game
-    (move {:tag "settings"})
-    (move {:tag "words"})
-    (move {:tag "add-words" :coll ["apple" "orange" "pear"]})
-    (move {:tag "back-from-words"})
-    (move {:tag "players"})
-    (move {:tag "add-player" :name "Alice"})
-    (move {:tag "add-player" :name "Bob"})
-    (move {:tag "add-player" :name "Petya"})
-    (move {:tag "add-player" :name "Vasya"})
-    (move {:tag "set-type" :personal? false})))
-
-(deftest foo2
-  (-> new-game
-    (move {:tag "settings"})
-    (move {:tag "words"})
-    (move {:tag "add-words" :coll ["apple" "orange" "pear"]})
-    (move {:tag "back-from-words"})
-    (move {:tag "players"})
-    (move {:tag "add-player" :name "Alice"})
-    (move {:tag "add-player" :name "Bob"})
-    (move {:tag "add-player" :name "Petya"})
-    (move {:tag "add-player" :name "Vasya"})
-    (move {:tag "back-from-players"})
-    (move {:tag "options"})
-    (move {:tag "set-explanation-tl" :explanation-tl 3})
-    (move {:tag "set-guess-tl" :guess-tl 0})
-    (move {:tag "set-number-of-cards" :cards-in-hands 1})
-    (move {:tag "set-return-flag" :return-words? false})
-    (move {:tag "back-from-options"})
-    (move {:tag "back-from-settings"})
-    (move {:tag "go"})))
-
-(deftest foo3
-  (-> new-game
-    (move {:tag "settings"})
-    (move {:tag "words"})
-    (move {:tag "add-words" :coll ["apple" "orange" "pear"]})
-    (move {:tag "back-from-words"})
-    (move {:tag "players"})
-    (move {:tag "add-player" :name "Alice"})
-    (move {:tag "add-player" :name "Bob"})
-    (move {:tag "add-player" :name "Petya"})
-    (move {:tag "add-player" :name "Vasya"})
-    (move {:tag "back-from-players"})
-    (move {:tag "options"})
-    (move {:tag "set-explanation-tl" :explanation-tl 3})
-    (move {:tag "set-guess-tl" :guess-tl 0})
-    (move {:tag "set-number-of-cards" :cards-in-hands 1})
-    (move {:tag "set-return-flag" :return-words? false})
-    (move {:tag "back-from-options"})
-    (move {:tag "back-from-settings"})
-    (move {:tag "go"}) (first)
-    (move {:tag "choice" :coll #{"apple" "pear" "orange"} :selection ["apple"]})
-    (move {:tag "ac" :word "apple"}) (first)
-    (move {:tag "choice" :coll #{"pear" "orange"} :selection ["orange"]})
-    (move {:tag "tick"})
-    (move {:tag "tick"})
-    (move {:tag "tick"})
-    (move {:tag "lastround"})
-    (move {:tag "fix" :word "orange" :status :hat})
-    (move {:tag "back-from-lastround"})
-    (move {:tag "gameover"})))
-
 
 (defmulti view :node)
 
@@ -738,6 +544,24 @@
   [:button {:onclick (constantly {:tag "complete-reset"})} "Yes"]
   [:button {:onclick (constantly {:tag "cancel-reset"})} "No"]])
 
+(defn personal-standings [history]
+  (let [a> (map (fn [[k v]] [((:pair v) 0) (count (:ac v))]) history)
+        a< (map (fn [[k v]] [((:pair v) 1) (count (:ac v))]) history)
+        acc (fn [coll] (into {} (map (fn [[k v]] [k (reduce + (map second v))])
+                                  (group-by first coll))))
+        d> (acc a>) d< (acc a<) d (merge-with + d> d<)]
+    (mapv (fn [[_ x]] [x (d> x 0) (d< x 0) (d x)])
+      (sort (map (fn [[k v]] [(- v) k]) d)))))
+
+(defn team-standings [history]
+  (let [a (map (fn [[k v]] [(:pair v) (count (:ac v))]) history)
+        d (into {} (map (fn [[k v]] [k (reduce + (map second v))])
+                      (group-by first a)))
+        p (map (fn [[k v]] [k (reduce + (map second v))])
+                      (group-by (comp vec sort first) a))]
+    (mapv (fn [[k v]] [v (d v 0) (d (reverse v) 0) (- k)])
+      (sort (map (fn [[k v]] [(- v) k]) p)))))
+
 (defmethod view "results" [model]
   (let [p (sort (set (mapcat (fn [[k v]] (:pair v)) (:history model))))
         a1 (mapcat (fn [[k v]] [[((:pair v) 0) (count (:ac v))]
@@ -747,13 +571,22 @@
         a2 (map (fn [[k v]] [(:pair v) (count (:ac v))]) (:history model))
         s2 (map (fn [[k v]] [(reduce + (map second v)) k])
             (group-by (comp vec sort first) a2))]
-    [[:h1 "Statisticts"]
+    [[:h1 "Standings"]
+      (when (:personal? model)
+        [[:h2 "Personal"]
+          [:table
+            (map
+              (fn [[k a b c]] [:tr [:td {:class "s7s-n"} k] [:td a] [:td b]
+                                [:td {:class "s7s-t"} c]])
+              (personal-standings (:history model)))]])
       [:h2 "Pairs"]
-      [:ul (map (fn [[k v]] [:li (str v) " " (str k)]) (reverse (sort s2)))]
-      [:h2 "Personal"]
-      [:ul (map (fn [[k v]] [:li v " " k]) (reverse (sort s1)))]
-    [:button {:onclick (constantly {:tag "newgame"})} "New game"]]))
-
+        [:table
+          (map
+            (fn [[k a b c]]
+              [:tr [:td {:class "s7s-n"} (str (first k) " / " (second k))]
+                [:td a] [:td b] [:td c]])
+            (team-standings (:history model)))]
+    [:button {:class "s7s-b" :onclick (constantly {:tag "newgame"})} "New game"]]))
 
 (defn dom
   "Returns a collection of HTML elements."
@@ -802,3 +635,33 @@
           (move m {:tag "choice" :coll (:coll c)
                     :selection (vec (take (:k c) (shuffle (:coll c))))})))
       x)))
+
+(defn run-app
+  "Runs application in the given element."
+ [app-class]
+ (let [state (atom {:on true :model new-game})
+        queue (atom '())]
+   (letfn [(enqueue [msg] (swap! queue conj msg))
+            (dequeue []
+              (loop [x @queue]
+                (if (compare-and-set! queue x '())
+                  (reverse x)
+                  (recur @queue))))
+            (stop [timer-id]
+              (fn []
+                (js/clearInterval timer-id)
+                (swap! state assoc :on false)))
+            (main []
+              (let [q (dequeue) m (reduce handle (:model @state) q)]
+                (when (not= m (:model @state))
+                  (swap! state assoc :model m)
+                  (render app-class m enqueue)))
+              (when (:on @state)
+                (js/setTimeout main 100)))]
+    (render app-class (:model @state) enqueue)
+    (main)
+    [(stop (js/setInterval (fn [] (enqueue {:tag "tick"})) 1000))
+      state queue enqueue dequeue])))
+
+(set! (.-onload js/window) (fn [_] (run-app "hatapp")))
+

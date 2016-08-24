@@ -4,7 +4,7 @@ body {
   padding: 0;
   font: normal 2rem / 1.5 Helvetica, Arial, sans-serif;
   text-rendering: optimizeLegibility;
-	background: white;
+  background: white;
   color: #222;
 }
 input { margin: 0; padding: 0;}
@@ -34,9 +34,9 @@ button {
   width: 100%;
   background-color: #dadada;
   color: inherit;
-	font-size: inherit;
-	border: 3px dotted white;
-	box-sizing: border-box;
+  font-size: inherit;
+  border: 3px dashed white;
+  box-sizing: border-box;
   font-family: inherit;
   font-weight: inherit;
   text-align: left;
@@ -44,7 +44,7 @@ button {
 
 button:hover  {
   color: black;
-	border: 3px solid white;
+  border: 3px solid white;
 }
 
 .go {
@@ -60,15 +60,15 @@ button:hover  {
 }
 
 .textbox {
-	margin: 0.5rem 0 0 0;
+  margin: 0.5rem 0 0 0;
   width: 100%;
   color: inherit;
-	font-size: inherit;
-	font-family: inherit;
-	font-weight: inherit;
-	padding: 0.5rem;
-	border: 1px solid #999;
-	box-sizing: border-box;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  padding: 0.5rem;
+  border: 1px solid #999;
+  box-sizing: border-box;
 }
 
 select {
@@ -76,11 +76,11 @@ select {
   padding: 0.5rem 0.25rem;
   display: block;
   color: inherit;
-	font-size: inherit;
-	font-family: inherit;
-	font-weight: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
   width: 100%; 
-	box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 .p5s-ul { list-style: none; margin: 0; padding: 0; }

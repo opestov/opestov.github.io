@@ -1,4 +1,25 @@
-(ns o8v.game (:require clojure.string))
+(ns o8v.game
+  (:require cljs.reader clojure.string))
+
+(def new-game
+  {:node "transition"
+  :step 0
+  :personal? true :cards-in-hands 2 :return-words? true
+  :explanation-tl 20 :guess-tl 3
+  :hat #{}
+  :players []
+  :history {}})
+
+(def new-game
+{
+:node "transition"
+:return-words? true :cards-in-hands 2 :personal? false :explanation-tl 5 :guess-tl 3
+:pair ["Alice" "Bob"]
+:step 8
+:history {1 {:pair ["Alice" "Bob"] :ac '("a" "b")} 2 {:pair ["Petya" "Vasya"] :ac nil} 3 {:pair ["Bob" "Alice"] :ac '("c")} 4 {:pair ["Vasya" "Petya"] :ac '("d" "e" "f")} 5 {:pair ["Alice" "Bob"] :ac '("g")} 6 {:pair ["Petya" "Vasya"] :ac '("h" "i")} 7 {:pair ["Bob" "Alice"] :ac nil} 8 {:pair ["Vasya" "Petya"] :ac '("j" "k" "l")}}
+:hat #{"apple" "orange" "dictionary" "ice"}
+:players ["Alice" "Petya" "Bob" "Vasya"]
+})
 
 (defonce beep
   (let [e (js/document.createElement "audio")]
@@ -39,7 +60,7 @@
   (if-not (some #{(:word msg)} (:hands (:round model)))
     ; ignore word if it is not in the hands
     model
-    ; word is correct and can be accepted
+    ; accept word
     (let [r (->
               (:round model)
               (assoc :hands (vec (remove #{(:word msg)} (:hands (:round model)))))
@@ -94,27 +115,20 @@
   (if-not (some #{(:word msg)} (:hands (:round model)))
     ; ignore word if it is not in the hands
     model
-    ; word is correct and can be accepted
+    ; accept word
     (let [r (->
               (:round model)
               (assoc :hands (vec (remove #{(:word msg)} (:hands (:round model)))))
               (update :ac conj (:word msg)))]
-      (complete-round (assoc model :round r)))))
+      (if (seq (:hands r))
+        (assoc model :round r)
+        (complete-round (assoc model :round r))))))
 
 ; {:tag "tick"}
 (defmethod move ["guess" "tick"] [model msg]
   (if (< (inc (get-in model [:round :ticks])) (:guess-tl model))
     (update-in model [:round :ticks] inc)
-    [(complete-round model) {:cmd "beep"}]))
-
-(def new-game
-  {:node "transition"
-  :step 0
-  :personal? true :cards-in-hands 2 :return-words? true
-  :explanation-tl 20 :guess-tl 3
-  :hat #{}
-  :players []
-  :history {}})
+    (complete-round model)))
 
 (defmethod move ["transition" "settings"] [model msg]
   (assoc model :node "settings"))
@@ -619,9 +633,7 @@
     (while (.-lastChild app-element)
       (.removeChild app-element (.-lastChild app-element)))
     (doseq [x (dom (view model app-class) enqueue)]
-      (.appendChild app-element x))
-    (when-let [first-input (.item (js/document.getElementsByTagName "input") 0)]
-      (.focus first-input))))
+      (.appendChild app-element x))))
 
 (defn handle [model msg]
   (let [x (move model msg)]
@@ -636,10 +648,17 @@
                     :selection (vec (take (:k c) (shuffle (:coll c))))})))
       x)))
 
+(defonce storage js/localStorage)
+(defn save-clj [key data]
+  (.setItem storage key (str data)))
+(defn load-clj [key]
+  (when-let [s (.getItem storage key)] 
+    (cljs.reader/read-string s)))
+
 (defn run-app
   "Runs application in the given element."
  [app-class]
- (let [state (atom {:on true :model new-game})
+ (let [state (atom {:on true :model (if-let [x (load-clj "hat")] x new-game)})
         queue (atom '())]
    (letfn [(enqueue [msg] (swap! queue conj msg))
             (dequeue []
@@ -655,7 +674,8 @@
               (let [q (dequeue) m (reduce handle (:model @state) q)]
                 (when (not= m (:model @state))
                   (swap! state assoc :model m)
-                  (render app-class m enqueue)))
+                  (render app-class m enqueue)
+                  (save-clj "hat" m)))
               (when (:on @state)
                 (js/setTimeout main 100)))]
     (render app-class (:model @state) enqueue)

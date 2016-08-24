@@ -23,7 +23,7 @@
 
 (defonce beep
   (let [e (js/document.createElement "audio")]
-    (.setAttribute e "src" "beep.wav")
+    (.setAttribute e "src" "beep.mp3")
     (fn [_] (.play e))))
 
 (defmulti move (fn [model msg] [(:node model) (:tag msg)]))

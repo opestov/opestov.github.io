@@ -383,8 +383,8 @@
     [[:h1
       [:a {:href "#" :class "back"}
           {:onclick (constantly {:tag "back-from-words"})} "←"]
-      "Words"]    
-    [:p 
+      "Words"]
+    [:p
       (if (= 1 (count (:hat model)))
         ["There is " [:strong "1"] " word in the hat."]
         ["There are " [:strong (str (count (:hat model)))] " words in the hat."])
@@ -456,9 +456,9 @@
       (map (opt (if (:return-words? model) "Yes" "No")) ["Yes" "No"])]]))
 
 
-(defmethod view "lastround" [model app-class]
+(defmethod view "lastround" [model app-id]
   (let [step (:step model)
-        app (.item (js/document.getElementsByClassName app-class) 0)
+        app (js/document.getElementById app-id)
         jfn (fn [x] (juxt identity (constantly (name x))))
         words (sort (concat
                       (map (jfn :ac) (get-in model [:history step :ac]))
@@ -469,7 +469,7 @@
                 (when (= type radio-type) {:checked ""})])
         bfn (fn [_]
               (let [coll (.getElementsByTagName app "input")]
-                (-> 
+                (->
                   (keep
                     (fn[i]
                       (let [r (.item coll i)]
@@ -502,15 +502,13 @@
           (font-size s f w l m)
           (font-size s f w m r))))))
 
-(defn app-font [class]
-  (.getPropertyValue 
-    (js/window.getComputedStyle
-      (.item (js/document.getElementsByClassName class) 0) 
-      nil)
+(defn app-font [app-id]
+  (.getPropertyValue
+    (js/window.getComputedStyle (js/document.getElementById app-id) nil)
     "font-family"))
 
-(defn app-width [class]
-  (let [root (.item (js/document.getElementsByClassName class) 0)
+(defn app-width [app-id]
+  (let [root (js/document.getElementById app-id)
         styles (js/window.getComputedStyle root nil)
         px (fn [s]
             (if-not (clojure.string/ends-with? s "px") 0
@@ -519,8 +517,8 @@
       (px (.getPropertyValue styles "padding-left"))
       (px (.getPropertyValue styles "padding-right")))))
 
-(defmethod view "explanation" [model app-class]
-  (let [f (app-font app-class) w (app-width app-class) h 80]
+(defmethod view "explanation" [model app-id]
+  (let [f (app-font app-id) w (app-width app-id) h 80]
     [[:h1 (str "Explanation " (:step model))]
       [:div {:class "progress"}
         {:style (str "width: " (/ (* (:ticks (:round model)) w)
@@ -533,8 +531,8 @@
         (:hands (:round model)))
       [:button {:onclick (constantly {:tag "giveup"})} "Give up"]]))
 
-(defmethod view "guess" [model app-class]
-  (let [f (app-font app-class) w (app-width app-class) h 80]
+(defmethod view "guess" [model app-id]
+  (let [f (app-font app-id) w (app-width app-id) h 80]
     [[:h1 (str "Guess " (:step model))]
       [:div {:class "progress"}
         {:style (str "width: " (/ (* (:ticks (:round model)) w)
@@ -546,13 +544,13 @@
               x]])
         (:hands (:round model)))]))
 
-(defmethod view "confirm-gameover" [model msg]
+(defmethod view "confirm-gameover" [model]
   [[:h1 "Confirmation"]
   [:p "Do you really want to end the game and view the results?"]
   [:button {:onclick (constantly {:tag "complete-gameover"})} "Yes"]
   [:button {:onclick (constantly {:tag "cancel-gameover"})} "No"]])
 
-(defmethod view "confirm-reset" [model msg]
+(defmethod view "confirm-reset" [model]
   [[:h1 "Confirmation"]
   [:p "Do you really want to reset the game?"]
   [:button {:onclick (constantly {:tag "complete-reset"})} "Yes"]
@@ -602,38 +600,70 @@
             (team-standings (:history model)))]
     [:button {:class "s7s-b" :onclick (constantly {:tag "newgame"})} "New game"]]))
 
-(defn dom
-  "Returns a collection of HTML elements."
-  [root enqueue]
-  (let [eh (fn [fun] (fn [e]
-                      (let [a (fun e)]
-                        (if (vector? a) (doseq [m a] (enqueue m)) (enqueue a)))))
-        dfs (fn f [x]
-              (cond
-                (nil? x)
-                  []
-                (and (coll? x) (keyword? (first x)))
-                  (let [element (js/document.createElement (name (first x)))]
-                    (doseq [y (remove nil? (next x))]
-                      (if (map? y)
-                        (doseq [[k v] y]
-                          (if (fn? v)
-                            (aset element (name k) (eh v))
-                            (.setAttribute element (name k) v)))
-                        (doseq [child (f y)] (.appendChild element child))))
-                    (vector element))
-                (coll? x)
-                  (mapcat f x)
-                :else
-                  (vector (js/document.createTextNode x))))]
-    (dfs root)))
+(defn normalize [x]
+  (cond
+    (nil? x)
+      []
+    (and (coll? x) (keyword? (first x)))
+      (let [{m+ true m- false} (group-by map? (remove nil? (next x)))
+            attrs (merge {} (apply merge m+))
+            children (vec (mapcat normalize m-))]
+      [[(first x) attrs children]])
+    (coll? x)
+      (vec (mapcat normalize x))
+    :else
+      [[x]]))
 
-(defn render [app-class model enqueue]
-  (let [app-element (.item (js/document.getElementsByClassName app-class) 0)]
-    (while (.-lastChild app-element)
-      (.removeChild app-element (.-lastChild app-element)))
-    (doseq [x (dom (view model app-class) enqueue)]
-      (.appendChild app-element x))))
+(defn create-element [[tag attrs children] enqueue]
+  (if (keyword? tag)
+    (let [element (js/document.createElement (name tag))]
+      (doseq [[k v] attrs]
+        (if (fn? v)
+          (aset element (name k)
+            (fn [e]
+              (let [a (v e)]
+                (if (map? a) (enqueue a) (doseq [x a] (enqueue x))))))
+          (.setAttribute element (name k) v)))
+      (doseq [c children] (.appendChild element (create-element c)))
+      element)
+    (js/document.createTextNode tag)))
+
+(defn fix-attrs [element past future enqueue]
+  (doseq [x (apply disj (set (keys past)) (keys future))]
+    (.removeAttribute element (name x)))
+  (doseq [[k v] future]
+    (if (not= v (past k))
+      (if (fn? v)
+        (aset element (name k)
+          (fn [e]
+            (let [a (v e)]
+              (if (map? a) (enqueue a) (doseq [x a] (enqueue x))))))
+        (.setAttribute element (name k) v)))))
+
+(defn zip [& colls]
+  (let [f (fn [coll] (concat coll (repeat nil)))
+        g? (partial not-every? nil?)]
+    (take-while g? (apply map vector (map f colls)))))
+  
+(defn update-dom [element vdom- vdom+ enqueue]
+  (let [child-elements (vec (array-seq (.-childNodes element)))]
+    (doseq [[x y c] (zip vdom- vdom+ child-elements)]
+      (cond
+        (= x y) nil
+        (nil? x) (.appendChild element (create-element y enqueue))
+        (nil? y) (.removeChild element c)
+        (not= (first x) (first y))
+          (.replaceChild element (create-element y enqueue) c)
+        :else
+          (when (> (count x) 1)
+            (do
+              (fix-attrs c (x 1) (y 1) enqueue)
+              (update-dom c (x 2) (y 2) enqueue)))))))
+
+(defn render [app-id old-model new-model enqueue]
+  (let [a (if (nil? old-model) [] (normalize (view old-model app-id)))
+        b (if (nil? new-model) [] (normalize (view new-model app-id)))]
+    (update-dom (js/document.getElementById app-id) a b enqueue)))
 
 (defn handle [model msg]
   (let [x (move model msg)]
@@ -642,7 +672,7 @@
         (case (:cmd c)
           "beep"
           (do (beep) m)
-          
+
           "choose"
           (move m {:tag "choice" :coll (:coll c)
                     :selection (vec (take (:k c) (shuffle (:coll c))))})))
@@ -652,13 +682,13 @@
 (defn save-clj [key data]
   (.setItem storage key (str data)))
 (defn load-clj [key]
-  (when-let [s (.getItem storage key)] 
+  (when-let [s (.getItem storage key)]
     (cljs.reader/read-string s)))
 
 (defn run-app
   "Runs application in the given element."
- [app-class]
- (let [state (atom {:on true :model (if-let [x (load-clj "hat")] x new-game)})
+  [app-id]
+  (let [state (atom {:on true :model (if-let [x (load-clj "hat")] new-game new-game)})
         queue (atom '())]
    (letfn [(enqueue [msg] (swap! queue conj msg))
             (dequeue []
@@ -671,17 +701,17 @@
                 (js/clearInterval timer-id)
                 (swap! state assoc :on false)))
             (main []
-              (let [q (dequeue) m (reduce handle (:model @state) q)]
+              (let [m (reduce handle (:model @state) (dequeue))]
                 (when (not= m (:model @state))
+                  (render app-id (:model @state) m enqueue)
                   (swap! state assoc :model m)
-                  (render app-class m enqueue)
                   (save-clj "hat" m)))
               (when (:on @state)
                 (js/setTimeout main 100)))]
-    (render app-class (:model @state) enqueue)
+    (render app-id nil (:model @state) enqueue)
     (main)
     [(stop (js/setInterval (fn [] (enqueue {:tag "tick"})) 1000))
       state queue enqueue dequeue])))
 
-(set! (.-onload js/window) (fn [_] (run-app "hatapp")))
+(set! (.-onload js/window) (fn [_] (run-app "root")))
 

@@ -7,8 +7,8 @@
     (clojure.java.io/delete-file node)))
 
 (delete-recursively (clojure.java.io/file "out"))
-(delete-recursively (clojure.java.io/file "game.js"))
+(delete-recursively (clojure.java.io/file "main.js"))
 (cljs.build.api/build "game.cljs"
-  {:output-to "game.js"
+  {:output-to "main.js"
   :optimizations :advanced})
 (delete-recursively (clojure.java.io/file "out"))

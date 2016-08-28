@@ -4,22 +4,11 @@
 (def new-game
   {:node "transition"
   :step 0
-  :personal? true :cards-in-hands 2 :return-words? true
+  :personal? true :cards-in-hands 1 :return-words? true
   :explanation-tl 20 :guess-tl 3
   :hat #{}
   :players []
   :history {}})
-
-(def new-game
-{
-:node "transition"
-:return-words? true :cards-in-hands 2 :personal? false :explanation-tl 5 :guess-tl 3
-:pair ["Alice" "Bob"]
-:step 8
-:history {1 {:pair ["Alice" "Bob"] :ac '("a" "b")} 2 {:pair ["Petya" "Vasya"] :ac nil} 3 {:pair ["Bob" "Alice"] :ac '("c")} 4 {:pair ["Vasya" "Petya"] :ac '("d" "e" "f")} 5 {:pair ["Alice" "Bob"] :ac '("g")} 6 {:pair ["Petya" "Vasya"] :ac '("h" "i")} 7 {:pair ["Bob" "Alice"] :ac nil} 8 {:pair ["Vasya" "Petya"] :ac '("j" "k" "l")}}
-:hat #{"apple" "orange" "dictionary" "ice"}
-:players ["Alice" "Petya" "Bob" "Vasya"]
-})
 
 (defonce beep
   (let [e (js/document.createElement "audio")]
@@ -455,41 +444,27 @@
     [:select {:onchange (handler "set-return-flag" (fn [x] (= "Yes" x)))}
       (map (opt (if (:return-words? model) "Yes" "No")) ["Yes" "No"])]]))
 
-
-(defmethod view "lastround" [model app-id]
+(defmethod view "lastround" [model]
   (let [step (:step model)
-        app (js/document.getElementById app-id)
-        jfn (fn [x] (juxt identity (constantly (name x))))
+        jfn (fn [x] (juxt identity (constantly x)))
         words (sort (concat
-                      (map (jfn :ac) (get-in model [:history step :ac]))
-                      (map (jfn :hat) (get-in model [:history step :hat]))
-                      (map (jfn :rj) (get-in model [:history step :rj]))))
-        inp (fn [word type radio-type]
-              [:input {:class "l2t-i" :type "radio" :name word :data-t radio-type}
-                (when (= type radio-type) {:checked ""})])
-        bfn (fn [_]
-              (let [coll (.getElementsByTagName app "input")]
-                (->
-                  (keep
-                    (fn[i]
-                      (let [r (.item coll i)]
-                        (when (.-checked r)
-                          {:tag "fix" :word (.-name r)
-                            :status (keyword (.getAttribute r "data-t"))})))
-                    (range (.-length coll)))
-                  (vec)
-                  (conj {:tag "back-from-lastround"}))))]
+                (map (jfn :ac) (get-in model [:history step :ac]))
+                (map (jfn :hat) (get-in model [:history step :hat]))
+                (map (jfn :rj) (get-in model [:history step :rj]))))
+        opt (fn [desc x y] [:option {:value (name x)}
+                              (when (= x y) {:selected true}) desc])
+        handler (fn [w] (fn [e] {:tag "fix" :word w
+                                  :status (keyword (.-value (.-target e)))}))]
     [[:h1
-      [:a {:href "#" :class "back" :onclick bfn} "←"] "Last round"]
-      [:p {:class "l2t-h"} [:span {:style "color: green;"} "+"]
-        [:span "−"] [:span {:style "color: red;"} "×"]]
-      [:ul {:class "l2t-ul"}
-        (map (fn [[x y]]
-                [:li {:class "l2t-li"}
-                  [:label {:class "l2t-t"} x]
-                  [:div {:class "l2t-d"}
-                  (inp x y "ac") (inp x y "hat") (inp x y "rj")]])
-          words)]]))
+        [:a {:href "#" :class "back"}
+          {:onclick (constantly {:tag "back-from-lastround"})} "←"]
+        "Last round"]
+      [:p "Choose action for each word."]
+      (map (fn [[w s]] [[:p w] [:select {:onchange (handler w)}
+                                (opt "accept" :ac s)
+                                (opt "return to the hat" :hat s)
+                                (opt "remove from the game" :rj s)]])
+        words)]))
 
 (defonce font-context (.getContext (js/document.createElement "canvas") "2d"))
 (defn font-size
@@ -714,4 +689,3 @@
       state queue enqueue dequeue])))
 
 (set! (.-onload js/window) (fn [_] (run-app "root")))
-

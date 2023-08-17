@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>QMK firmware and Keychron K3 Pro keyboard plus to try different keyboard layouts</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style type="text/css">
+html { line-height: 1.4; -webkit-text-size-adjust: 100%; }
+body{ margin: 0; padding: 20px; background-color: #fff; color: #000; font-family: sans-serif; font-size: 1em; }
+h1 { font-size: 2em; }
+h2 { margin-top:1em; }
+</style>
+</head>
+
+<body id="qmk">
+
+<h1>Trying Miryoku layout on a Keychron QMK keyboard</h1>
+<small>Verified on <time datetime="2023-08-16">2023-08-16</time></small>
+
+<h2>Contents:</h2>
+<ol>
+<li><a href="#what">What?</a></li>
+<li><a href="#env">Setting Up QMK Environment</a></li>
+<li><a href="#flash">Flashing firmware</a></li>
+<li><a href="#miryoku">Building firmware with the Miryoku layout</a></li>
+</ol>
+
+<section id="what">
+<h2>What?</h2>
+<p>
+    I have a <a href="https://www.keychron.com/products/keychron-k3-pro-qmk-via-wireless-custom-mechanical-keyboard">Keychron K3 Pro ANSI</a> keyboard and want to use the following subset of keys to try the <a href="https://github.com/manna-harbour/miryoku/">Miryoku</a> layout.
+</p>
+<figure><img src="k-miryoku.jpg"></figure>
+</section>
+
+<section id="env">
+<h2>Setting up QMK environment</h2>
+<p>
+    I follow the <em>Ubuntu/WSL</em> track of the official <a href="https://docs.qmk.fm/#/newbs">Complete Newbs Guide</a>.
+    But with the distinction that Keychron has <a href="https://github.com/Keychron/qmk_firmware/tree/bluetooth_playground/keyboards/keychron/k3_pro">it's own fork</a> of the QMK repository.
+</p>
+<ol>
+<li>Make sure that <a href="https://learn.microsoft.com/en-us/windows/wsl/install">WSL</a> is installed.</li>
+<li>Open terminal of Ubuntu distribution.</li>
+<li>Update information about available packages<br><code>sudo apt update</code></li>
+<li>Install Git, Python and pip <br><code>sudo apt install -y git python3-pip</code></li>
+<li>Install QMK CLI<br><code>python3 -m pip install --user qmk</code></li>
+<li>Add <code>$HOME/.local/bin</code> to the PATH<br><code>echo 'PATH="$HOME/.local/bin:$PATH"' >> $HOME/.bashrc && source $HOME/.bashrc</code></li>
+<li>Run QMK setup. Here I point to the Keychron fork of the QMK repository.<br> <code>qmk setup Keychron/qmk_firmware</code></li>
+<li>Checkout the <code>bluetooth_playground</code> branch<br><code>cd qmk_firmware</code><br><code>git checkout bluetooth_playground</code><br><code>make git-submodule</code></li>
+<li>Build the default firmware<br><code>qmk compile -kb keychron/k3_pro/ansi/rgb -km default</code></li>
+<li>The command on the step 9 would produce the artifact <code>keychron_k3_pro_ansi_rgb_default.bin</code> in the current directory.</li>
+<li>Type <code>explorer.exe .</code> to open Windows File Explorer from Ubuntu.
+<li>In the address bar see Windows-friendly path to the directory with the artifact. Mine is <code>\\wsl.localhost\Ubuntu\home\ubuntu\qmk_firmware</code></li>
+</ol>
+</section>
+
+<section id="flash">
+<h2>Flashing firmware</h2>
+<p>
+    Use Windows to flash firmware.
+</p>
+<ol>
+<li>Download the <a href="https://github.com/qmk/qmk_toolbox/releases">QMK Toolbox</a>. Standalone <code>qmk_toolbox.exe</code> is fine.</li>
+<li>Run the QMK toolbox. Agree, if it asks you to install drivers.</li>
+<li>Select the Open button, go to the directory from the step 12 of the previous section and then select the artifact with the firmware.</li>
+<li>Toggle keyboard mode switch to <em>Off</em>, connect the keyboard, hold down the <kbd>Esc</kbd> and then toggle the switch to <em>Cable</em>.<br><samp>STM32 DFU device connected (WinUSB): STMicroelectronics STM32  BOOTLOADER (0483:DF11:2200)</samp></li>
+<li>Click the Flash button. Wait.<br>
+<samp>Flash complete<br>STM32 DFU device disconnected (WinUSB): STMicroelectronics STM32  BOOTLOADER (0483:DF11:2200)
+</samp></li>
+</ol>
+</section>
+
+<section id="miryoku">
+<h2>Building firmware with the Miryoku layout</h2>
+<p>
+    No matter what OS is used, <strong>toggle Win/Mac keyboard switch to Mac</strong>.
+    Open Ubuntu terminal and make sure that working directory is <code>qmk_firmware</code>.
+</p>
+<ol>
+<li>Create new keymap<br><code>qmk new-keymap -kb keychron/k3_pro/ansi/rgb</code></li>
+<li>When asked, type the name <code>manna-harbour_miryoku</code></li>
+<li>Edit the created keymap<br><code> notepad.exe keyboards/keychron/k3_pro/ansi/rgb/keymaps/manna-harbour_miryoku/keymap.c</code></li>
+<li>Replace content of the file with
+<pre>#define _____ KC_NO
+
+#define LAYOUT_miryoku(\
+  K00  ,  K01  ,  K02  ,  K03  ,  K04  ,          K05  ,  K06  ,  K07  ,  K08  ,  K09  ,\
+  K10  ,  K11  ,  K12  ,  K13  ,  K14  ,          K15  ,  K16  ,  K17  ,  K18  ,  K19  ,\
+  K20  ,  K21  ,  K22  ,  K23  ,  K24  ,          K25  ,  K26  ,  K27  ,  K28  ,  K29  ,\
+  N30  ,  N31  ,  K32  ,  K33  ,  K34  ,          K35  ,  K36  ,  K37  ,  N38  ,  N39\
+)\
+LAYOUT_ansi_84(\
+ _____ , _____ ,  K00  ,  K01  ,  K02  ,  K03  ,  K04  , _____ ,  K05  ,  K06  ,  K07  ,  K08  ,  K09  , _____ , _____ , _____ ,\
+ _____ , _____ ,  K10  ,  K11  ,  K12  ,  K13  ,  K14  , _____ ,  K15  ,  K16  ,  K17  ,  K18  ,  K19  ,     _____     , _____ ,\
+   _____   ,  K20  ,  K21  ,  K22  ,  K23  ,  K24  , _____ , _____ ,  K25  ,  K26  ,  K27  ,  K28  ,  K29  ,   _____   , _____ ,\
+    _____    , _____ , _____ , _____ ,  K32  ,  K33  ,  K34  ,  K35  ,  K36  ,  K37  , _____ , _____ ,      _____      , _____ ,\
+      _____      , _____ , _____ , _____ , _____ , _____ , _____ , _____ , _____ , _____ , _____ ,    _____    , _____ , _____ ,\
+  _____  ,  _____  ,  _____  ,                      _____                      , _____ , _____ , _____ , _____ , _____ , _____\
+)</pre>
+</li>
+<li>Save the file and close the editor.</li>
+<li>Build the firmware<br><code>qmk compile -kb keychron/k3_pro/ansi/rgb -km manna-harbour_miryoku</code></li>
+<li>Now flash the firmware following the steps from the <a href="#flash">previous section</a></li>
+<li>Congratulations!</li>
+<li>Miryoku can be customized in a number of ways. See the <a href="https://github.com/manna-harbour/miryoku/tree/master/docs/reference">documentation</a><br><code>qmk compile -kb keychron/k3_pro/ansi/rgb -km manna-harbour_miryoku -e MIRYOKU_ALPHAS=QWERTY -e MIRYOKU_EXTRA=DVORAK -e MIRYOKU_TAP=QWERTY -e MIRYOKU_CLIPBOARD=WIN</code></li>
+</ol>
+<p>
+    Caveat.
+    In the <code>keymap.c</code> I defined what subset of keys on the keyboard I want to use.
+    The actual logic behind the layout is located in the directory <code>users/manna-harbour_miryoku/</code> and this directory is part of the repository.
+    Because I am using Keychron fork of the QMK repository I might not have the latest version of the Miryoku.
+    Actually the QMK repository itself <a href="https://github.com/manna-harbour/miryoku_qmk/tree/miryoku/users/manna-harbour_miryoku#qmk-master">might not contain</a> the latest version of the Miryoku. I am ok with that.
+</p>
+</section>
+
+</body>
+</html>

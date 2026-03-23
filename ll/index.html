@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static Password Generator</title>
+</head>
+<body>
+
+    <h2>Password Generator</h2>
+    <form id="passwordForm" autocomplete="off">
+        <div>
+            <label for="site">Site</label>
+            <input type="text" id="site" name="site" required>
+        </div>
+        <div>
+            <label for="login_password">password</label>
+            <input type="password" id="login_password" name="login_password" autocomplete="off" required>
+        </div>
+        <div>
+            <label for="length">Length:</label>
+            <input type="number" id="length" name="length" value="16" min="4" required>
+        </div>
+        <div>
+            <label for="counter">Counter:</label>
+            <input type="number" id="counter" name="counter" value="1" required>
+        </div>
+        <div>
+            <label><input type="checkbox" id="lowercase" name="lowercase" checked> az</label>
+            <label><input type="checkbox" id="uppercase" name="uppercase" checked> AZ</label>
+            <label><input type="checkbox" id="digits" name="digits" checked> 09</label>
+            <label><input type="checkbox" id="symbols" name="symbols" checked> %!@</label>
+            <button type="button" id="allBtn">All</button>
+            <button type="button" id="noneBtn">None</button>
+        </div>
+    </form>
+
+    <h3>Result</h3>
+    <input type="password" id="output" readonly>
+    <div>
+        <button type="button" id="toggleBtn">Show</button>
+        <button type="button" id="copyBtn">Copy</button>
+        <div id="error-msg" style="color: red; min-height: 1.2em; margin-top: 5px;"></div>
+    </div>
+
+    <script>
+        const CHARACTER_SUBSETS = {
+            "lowercase": "abcdefghijklmnopqrstuvwxyz",
+            "uppercase": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            "digits": "0123456789",
+            "symbols": "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
+        };
+
+        async function generate(config) {
+            const s = config.login_password;
+            const login = s.slice(0, s.length / 2);
+            const password = s.slice(s.length / 2);
+
+            const textEncoder = new TextEncoder();
+
+            // Generate Entropy using PBKDF2
+            const key = await window.crypto.subtle.importKey("raw",
+                textEncoder.encode(password), { name: "PBKDF2" }, false, ["deriveBits"]);
+
+            const salt = config.site + login + config.counter.toString(16);
+            const derivedBits = await window.crypto.subtle.deriveBits(
+                {name: "PBKDF2", salt: textEncoder.encode(salt), iterations: 100000, hash: "SHA-256" }, key, 256);
+
+            const hexEntropy = Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, '0')).join('');
+            let entropy = BigInt('0x' + hexEntropy);
+
+            // Determine Subsets
+            const subsets = [];
+            for (const k of ["lowercase", "uppercase", "digits", "symbols"])
+                if (config[k])
+                    subsets.push(CHARACTER_SUBSETS[k]);
+            if (subsets.length === 0)
+                throw new Error("Select at least one character set.");
+
+            // Initial Password Generation
+            let res = "";
+            const all = subsets.join('');
+            const allBi = BigInt(all.length);
+            for (let i = 0; i < config.length - subsets.length; i++) {
+                res += all[Number(entropy % allBi)];
+                entropy = entropy / allBi;
+            }
+
+            // Extra Characters (one from each subset)
+            let extra = "";
+            for (const s of subsets) {
+                const bi = BigInt(s.length);
+                extra += s[Number(entropy % bi)];
+                entropy = entropy / bi;
+            }
+            for (const c of extra) {
+                const bi = BigInt(res.length);
+                const pos = Number(entropy % bi);
+                res = res.slice(0, pos) + c + res.slice(pos);
+                entropy = entropy / bi;
+            }
+
+            return res;
+        }
+
+        function setAll(value) {
+            for (const k of ["lowercase", "uppercase", "digits", "symbols"]) {
+                document.getElementById(k).checked = value;
+            }
+            run();
+        }
+
+        const allBtn = document.getElementById('allBtn');
+        const noneBtn = document.getElementById('noneBtn');
+        allBtn.addEventListener('click', () => setAll(true));
+        noneBtn.addEventListener('click', () => setAll(false));
+
+        const outputEl = document.getElementById('output');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const form = document.getElementById('passwordForm');
+        const errorMsg = document.getElementById('error-msg');
+
+        async function run() {
+            errorMsg.innerText = "";
+            outputEl.value = "";
+
+            const config = {
+                site: document.getElementById('site').value,
+                login_password: document.getElementById('login_password').value,
+                counter: parseInt(document.getElementById('counter').value),
+                length: parseInt(document.getElementById('length').value),
+                lowercase: document.getElementById('lowercase').checked,
+                uppercase: document.getElementById('uppercase').checked,
+                digits: document.getElementById('digits').checked,
+                symbols: document.getElementById('symbols').checked,
+            };
+
+
+            try {
+                if (!config.login_password || !config.site) {
+                    errorMsg.innerText = "Site and password are required.";
+                    return;
+                }
+                const password = await generate(config);
+                outputEl.value = password;
+            } catch (err) {
+                errorMsg.innerText = "Error: " + err.message;
+            }
+        }
+
+        form.addEventListener('input', run);
+
+        copyBtn.addEventListener('click', () => {
+            outputEl.select();
+            navigator.clipboard.writeText(outputEl.value).then(() => {
+                const originalText = copyBtn.innerText;
+                copyBtn.innerText = "Copied!";
+                setTimeout(() => copyBtn.innerText = originalText, 2000);
+            }).catch(err => {
+                errorMsg.innerText = "Failed to copy: " + err.message;
+            });
+        });
+
+        toggleBtn.addEventListener('click', () => {
+            if (outputEl.type === "password") {
+                outputEl.type = "text";
+                toggleBtn.textContent = "Hide";
+            } else {
+                outputEl.type = "password";
+                toggleBtn.textContent = "Show";
+            }
+        });
+    </script>
+</body>
+</html>
